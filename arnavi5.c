@@ -7,7 +7,7 @@
    https://docs.google.com/spreadsheets/d/15s-2ZbqOQ1bZvAtFFm9sIEuKy3jbJzxdeynp72sjoYU/edit?usp=sharing
 
    compile:
-   make -B arnavi
+   make -B arnavi5
 */
 
 #include <stdlib.h> /* malloc */
@@ -59,7 +59,10 @@ void terminal_decode(char *parcel, int parcel_size, ST_ANSWER *answer)
 			snprintf(answer->lastpoint.soft, SIZE_TRACKER_FIELD, "%d", arnavi_header->PV);
 
 			/*
-			Arnavi-4 has arnavi_header->PV == 0x23 but:
+			Old Arnavi-4 has arnavi_header->PV == 0x22
+				and recognize responce for HEADER
+				it si OK
+			New Arnavi-4 has arnavi_header->PV == 0x23 but:
 				not recognize response for HEADER2
 				recognize responce for HEADER
 			Arnavi-5 has arnavi_header->PV == 0x23 but:
@@ -72,9 +75,10 @@ void terminal_decode(char *parcel, int parcel_size, ST_ANSWER *answer)
 				answer->answer[answer->size++] = 0x7B;	// start of the answer / command
 				answer->answer[answer->size++] = sizeof(int);	// The size of the field "command data"
 				answer->answer[answer->size++] = 0;	// parcel number (0x00 - HEADER, 0x01-0xFB - PACKAGE)
-				answer->answer[answer->size++] = 0xA0;	// CRC of the field "command data"
-				sprintf(&answer->answer[answer->size], "%d", (int)time(NULL));	// field "command data": UNIXTIME
-				answer->size += sizeof(int);
+				iPackageNumber = answer->size;
+				sprintf(&answer->answer[iPackageNumber+1], "%d", (int)time(NULL));	// field "command data": UNIXTIME
+				answer->answer[iPackageNumber] = CRC8(&answer->answer[iPackageNumber+1], sizeof(int));//0xA0;	// CRC of the field "command data"
+				answer->size += (sizeof(int) + 1);
 				answer->answer[answer->size++] = 0x7D;	// end response / command
 			}
 			else {	// HEADER

@@ -50,7 +50,7 @@ void logging(char *template, ...)
 	} else {
 		if( mq_send(log_queue, (const char *)message, len, 0) < 0 ) {
 			syslog(LOG_NOTICE, "logging: mq_send(log_queue) error %d: %s\n", errno, strerror(errno));
-			syslog(LOG_NOTICE, message);
+			syslog(LOG_NOTICE, "%s\n", message);
 		}
 		mq_close(log_queue);
 	}

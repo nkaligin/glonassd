@@ -58,7 +58,10 @@ void terminal_decode(char *parcel, int parcel_size, ST_ANSWER *answer)
 			snprintf(answer->lastpoint.soft, SIZE_TRACKER_FIELD, "%d", arnavi_header->PV);
 
 			/*
-			Arnavi-4 has arnavi_header->PV == 0x23 but:
+			Old Arnavi-4 has arnavi_header->PV == 0x22
+				and recognize responce for HEADER
+				it si OK
+			New Arnavi-4 has arnavi_header->PV == 0x23 but:
 				not recognize response for HEADER2
 				recognize responce for HEADER
 			Arnavi-5 has arnavi_header->PV == 0x23 but:
@@ -66,12 +69,30 @@ void terminal_decode(char *parcel, int parcel_size, ST_ANSWER *answer)
 				not recognize responce for HEADER
 			*/
 
-			// confirmation HEADER (7B 00 00 7D)
-			answer->answer[answer->size++] = 0x7B;	// start of the answer / command
-			answer->answer[answer->size++] = 0;	// Number of bytes (N) to answer (the size of the field "command data")
-			answer->answer[answer->size++] = 0;	// parcel number (0x00 - HEADER, 0x01-0xFB - PACKAGE)
-			answer->answer[answer->size++] = 0x7D;	// end response / command
-			//log2file("/home/work/gcc/glonassd/logs/arnavi_out_header", answer->answer, answer->size);
+			/*
+			19.01.19
+			Надо опробовать на арнави-4, могут отказаться работать те6 устройства, которые
+			посылают arnavi_header->PV == 0x23, но не понимают HEADER2
+			*/
+			if( arnavi_header->PV == 0x23 ){	// HEADER2
+				// confirmation HEADER2 (7B 04 00 CRC UNIXTIME 7D) 9 bytes (UNIXTIME - 4 bytes)
+				answer->answer[answer->size++] = 0x7B;	// start of the answer / command
+				answer->answer[answer->size++] = sizeof(int);	// The size of the field "command data"
+				answer->answer[answer->size++] = 0;	// parcel number (0x00 - HEADER, 0x01-0xFB - PACKAGE)
+				iPackageNumber = answer->size;	// reserve 1 byte for CRC
+				sprintf(&answer->answer[iPackageNumber+1], "%d", (int)time(NULL));	// field "command data": UNIXTIME
+				// write to reserved position:
+				answer->answer[iPackageNumber] = CRC8((unsigned char *)&answer->answer[iPackageNumber+1], sizeof(int));	// CRC of the field "command data"
+				answer->size += (sizeof(int) + 1);	// calc actual answer size = CRC8 (1 byte) + sizeof(int)
+				answer->answer[answer->size++] = 0x7D;	// end response / command
+			}
+			else {	// HEADER
+				// confirmation HEADER (7B 00 00 7D) 4 bytes
+				answer->answer[answer->size++] = 0x7B;	// start of the answer / command
+				answer->answer[answer->size++] = 0;	// Number of bytes (N) to answer (the size of the field "command data")
+				answer->answer[answer->size++] = 0;	// parcel number (0x00 - HEADER, 0x01-0xFB - PACKAGE)
+				answer->answer[answer->size++] = 0x7D;	// end response / command
+			}
 
 			iBuffPosition += sizeof(ARNAVI_HEADER);
 			break;
